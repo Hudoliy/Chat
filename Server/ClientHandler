@@ -1,0 +1,92 @@
+/*
+ * To change this license header, choose License Headers in Project Properties.
+ * To change this template file, choose Tools | Templates
+ * and open the template in the editor.
+ */
+package server;
+
+/**
+ *
+ * @author Худолий Евгений
+ */
+
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Scanner;
+
+public class ClientHandler implements Runnable {
+    private Server server;
+    private PrintWriter outMessage;
+    private Scanner inMessage;
+    private static final String HOST = "localhost";
+    private static final int PORT = 3443;
+    private Socket clientSocket = null;
+    private static int clients_count = 0;
+
+		// конструктор, який приймає клієнтський сокет і сервер
+    public ClientHandler(Socket socket, Server server) {
+        try {
+            clients_count++;
+            this.server = server;
+            this.clientSocket = socket;
+            this.outMessage = new PrintWriter(socket.getOutputStream());
+            this.inMessage = new Scanner(socket.getInputStream());
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    @Override
+    public void run() {
+        try {
+            while (true) {
+		//сервер надсилає повідомлення
+                server.sendMessageToAllClients("Новий користувач!!");
+                server.sendMessageToAllClients("Користувачів в чаті = " + clients_count);
+                break;
+            }
+
+            while (true) {
+                //Якщо від клієнта пришло повідомлення
+                if (inMessage.hasNext()) {
+                    String clientMessage = inMessage.nextLine();
+										// якщо клієнт відправляє дане повідомлення, то цикл переривається і
+										// клієнт виходить з чату
+                    if (clientMessage.equalsIgnoreCase("##session##end##")) {
+                        break;
+                    }
+										// виводимо в консоль повідомлення (для тесту)
+                    System.out.println(clientMessage);
+										// відправляємо дане повідомлення всім клієнтам
+                    server.sendMessageToAllClients(clientMessage);
+                }
+								// зупиняємо виконання потоку на 100 мс
+                Thread.sleep(100);
+            }
+        }
+        catch (InterruptedException ex) {
+            ex.printStackTrace();
+        }
+        finally {
+            this.close();
+        }
+    }
+		// надсилаємо повідомлення
+    public void sendMsg(String msg) {
+        try {
+            outMessage.println(msg);
+            outMessage.flush();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+    }
+		// клієнт виходить з чата
+    public void close() {
+				// видаляємо клієнт
+        server.removeClient(this);
+        clients_count--;
+        server.sendMessageToAllClients("Користувачів в чаті = " + clients_count);
+    }
+}
